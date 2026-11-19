@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rolling Target Countdown & Timeline (2026–2036)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* Force pure obsidian dark theme even if mobile browser auto-inverts or overrides */
+    html, body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #06070a !important;
+      color: #ffffff !important;
+      color-scheme: dark;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Subtle radial ambient glow in background */
+    .ambient-bg {
+      background:
+        radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.045) 0%, rgba(15, 20, 32, 0.15) 38%, #06070a 75%) !important;
+    }
+
+    /* Subtle iOS-style frosted glassmorphism for Live Time & Target Deadline badges */
+    .ios-glass-pill {
+      background: rgba(255, 255, 255, 0.05) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      color: #ffffff !important;
+      box-shadow:
+        0 4px 24px -1px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+    }
+
+    /* Deeper frosted glass panel for modal & popovers */
+    .ios-glass-modal {
+      background: rgba(14, 16, 22, 0.86) !important;
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      color: #ffffff !important;
+      box-shadow:
+        0 24px 60px -12px rgba(0, 0, 0, 0.85),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+    }
+
+    /* Soft outer white glow on main countdown digits (NO box or glass container) */
+    .countdown-glow {
+      color: #ffffff !important;
+      text-shadow:
+        0 0 22px rgba(255, 255, 255, 0.34),
+        0 0 50px rgba(255, 255, 255, 0.14);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Glowing active progress dot on timeline */
+    .live-dot {
+      background-color: #ffffff !important;
+      box-shadow:
+        0 0 10px 2px rgba(255, 255, 255, 0.95),
+        0 0 24px 6px rgba(255, 255, 255, 0.5),
+        0 0 42px 10px rgba(255, 255, 255, 0.2);
+    }
+
+    /* Illuminated progress bar track */
+    .progress-bar-glow {
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.45);
+    }
+
+    /* Tooltip downward arrow */
+    .tooltip-arrow::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%) rotate(45deg);
+      width: 9px;
+      height: 9px;
+      background: #181b22;
+      border-right: 1px solid rgba(255, 255, 255, 0.16);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    }
+
+    /* Custom subtle range slider for Demo Time Travel */
+    input[type="range"].time-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.12);
+      height: 4px;
+      border-radius: 999px;
+    }
+    input[type="range"].time-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+    }
+    input[type="range"].time-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+    }
+
+    /* Custom scrollbar for mobile timeline & modal body */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .subtle-scrollbar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .subtle-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .subtle-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+    .subtle-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.28);
+    }
+
+    /* Color scheme for date input icon in dark mode */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1) opacity(0.7);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="ambient-bg min-h-screen flex flex-col justify-between selection:bg-white/20 selection:text-white">
+
+  <!-- Top Bar: Left Stacked Controls (Live Mode + Event) & Right Frosted Glass Live Clock -->
+  <header class="w-full px-4 sm:px-8 pt-5 sm:pt-7 flex items-start justify-between gap-3 z-20">
+    <!-- Top-Left Vertical Stack: Live Mode on top, Event directly below -->
+    <div class="flex flex-col items-start gap-2">
+      <!-- Discreet Demo / Time Travel Trigger -->
+      <div class="relative">
+        <button
+          id="demoToggleBtn"
+          type="button"
+          class="ios-glass-pill px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-300 hover:text-white transition-colors flex items-center gap-2 cursor-pointer"
+          title="Simulate any date between 2026 and 2036"
+        >
+          <span id="demoStatusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="demoBtnLabel">Live Mode</span>
+        </button>
+
+        <!-- Collapsible Time Travel Popover -->
+        <div
+          id="demoPanel"
+          class="hidden absolute left-0 mt-2.5 w-72 sm:w-80 ios-glass-modal rounded-2xl p-4 z-50 text-xs text-zinc-300 space-y-3"
+        >
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-white">Timeline Preview / Time Travel</span>
+            <button
+              id="resetLiveBtn"
+              type="button"
+              class="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white text-[11px] font-medium transition cursor-pointer"
+            >
+              Reset to Live
+            </button>
+          </div>
+          <p class="text-[11px] text-zinc-400 leading-relaxed">
+            Scrub across 2026–2036 to watch the dot glide smoothly and see the rolling target shift automatically on Oct 12 at 12:30 PM.
+          </p>
+          <div class="space-y-1.5">
+            <input
+              id="timeScrubber"
+              type="range"
+              min="0"
+              max="10000"
+              value="0"
+              class="w-full time-slider"
+            />
+            <div class="flex justify-between text-[10px] text-zinc-500">
+              <span>12 Oct 2026</span>
+              <span id="scrubberYearHint" class="text-zinc-300 font-medium">Live Now</span>
+              <span>12 Oct 2036</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1.5 pt-1">
+            <button type="button" data-jump="2027-10-12T12:29:50" class="jump-btn px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[10px] text-zinc-300 transition cursor-pointer">
+              10s before 1st Anniv
+            </button>
+            <button type="button" data-jump="2031-04-12T12:30:00" class="jump-btn px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[10px] text-zinc-300 transition cursor-pointer">
+              Midway (2031)
+            </button>
+            <button type="button" data-jump="2036-10-12T12:29:52" class="jump-btn px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[10px] text-zinc-300 transition cursor-pointer">
+              8s before Finale
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Event Trigger Pill Directly Below Live Mode -->
+      <button
+        id="eventToggleBtn"
+        type="button"
+        class="ios-glass-pill px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-300 hover:text-white transition-all flex items-center gap-2 cursor-pointer group"
+        title="View & Add Timeline Events"
+      >
+        <svg class="w-3.5 h-3.5 text-sky-300/90 group-hover:text-sky-200 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="3" ry="3"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        <span>Event</span>
+        <span id="eventHeaderBadge" class="px-1.5 py-0.2 rounded-full bg-white/10 text-[10px] text-zinc-300 font-semibold">0</span>
+      </button>
+
+      <!-- Story Trigger Pill Directly Below Event -->
+      <button
+        id="storyToggleBtn"
+        type="button"
+        class="ios-glass-pill px-3.5 py-1.5 rounded-full text-xs font-medium text-zinc-300 hover:text-white transition-all flex items-center gap-2 cursor-pointer group"
+        title="Read & Write Timeline Story Chapters"
+      >
+        <svg class="w-3.5 h-3.5 text-amber-300/90 group-hover:text-amber-200 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+        </svg>
+        <span>Story</span>
+        <span id="storyHeaderBadge" class="px-1.5 py-0.2 rounded-full bg-white/10 text-[10px] text-zinc-300 font-semibold">0</span>
+      </button>
+    </div>
+
+    <!-- Top-Right Live Time Pill with subtle iOS frosted glassmorphism -->
+    <div class="ios-glass-pill px-4 sm:px-5 py-2 rounded-full flex items-center gap-2 text-xs sm:text-sm tracking-wide ml-auto">
+      <span class="text-zinc-400 font-medium uppercase text-[11px] sm:text-xs tracking-wider">LIVE TIME:</span>
+      <span id="liveClockText" class="text-white font-semibold tabular-nums">-- --- ---- | --:--:-- --</span>
+    </div>
+  </header>
+
+  <!-- Center Main Countdown Section (Compact Size) -->
+  <main class="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-12 text-center select-none">
+    <!-- Countdown Numbers Row -->
+    <div id="countdownWrapper" class="flex flex-wrap items-baseline justify-center gap-x-4 sm:gap-x-6 md:gap-x-8 gap-y-3 max-w-4xl">
+      <!-- Days -->
+      <div class="flex items-baseline gap-1 sm:gap-1.5">
+        <span id="cdDays" class="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white countdown-glow leading-none">
+          000
+        </span>
+        <span class="text-xs sm:text-sm md:text-base font-normal text-zinc-400 tracking-normal">
+          days
+        </span>
+      </div>
+
+      <!-- Hours -->
+      <div class="flex items-baseline gap-1 sm:gap-1.5">
+        <span id="cdHours" class="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white countdown-glow leading-none">
+          00
+        </span>
+        <span class="text-xs sm:text-sm md:text-base font-normal text-zinc-400 tracking-normal">
+          hours
+        </span>
+      </div>
+
+      <!-- Minutes -->
+      <div class="flex items-baseline gap-1 sm:gap-1.5">
+        <span id="cdMinutes" class="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white countdown-glow leading-none">
+          00
+        </span>
+        <span class="text-xs sm:text-sm md:text-base font-normal text-zinc-400 tracking-normal">
+          minutes
+        </span>
+      </div>
+
+      <!-- Seconds -->
+      <div class="flex items-baseline gap-1 sm:gap-1.5">
+        <span id="cdSeconds" class="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white countdown-glow leading-none">
+          00
+        </span>
+        <span class="text-xs sm:text-sm md:text-base font-normal text-zinc-400 tracking-normal">
+          seconds
+        </span>
+      </div>
+    </div>
+
+    <!-- Finale Completed Banner (Hidden until Oct 12, 2036 12:30 PM is reached) -->
+    <div id="finaleBanner" class="hidden py-4">
+      <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white countdown-glow">
+        FINALLY GOT IT
+      </h1>
+    </div>
+
+    <!-- Interactive Rolling Target Deadline Pill & Switcher (Subtle iOS Frosted Glass) -->
+    <div class="mt-5 sm:mt-7 relative inline-block">
+      <button
+        id="targetSwitcherBtn"
+        type="button"
+        class="ios-glass-pill px-4 sm:px-5 py-2 rounded-full inline-flex items-center gap-2 text-xs sm:text-sm hover:border-white/25 transition-all cursor-pointer group"
+        title="Switch Target Deadline (2027 Rolling vs. 2036 Finally Got It)"
+        aria-expanded="false"
+      >
+        <span class="text-zinc-400 font-normal">Target Deadline:</span>
+        <span id="rollingTargetText" class="text-zinc-100 font-medium tracking-wide">
+          12 October 2027 &bull; 12:30 PM
+        </span>
+        <svg id="targetSwitcherChevron" class="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition-transform duration-200 ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+
+      <!-- Target Deadline Dropdown Popover -->
+      <div
+        id="targetSwitcherMenu"
+        class="hidden absolute left-1/2 -translate-x-1/2 mt-2.5 w-72 sm:w-80 ios-glass-modal rounded-2xl p-2 z-40 text-left shadow-2xl space-y-1"
+      >
+        <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+          Select Countdown Target
+        </div>
+
+        <!-- Option 1: Rolling / 12 October 2027 (Default) -->
+        <button
+          id="targetOptRolling"
+          type="button"
+          class="w-full px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 transition-colors flex items-center justify-between gap-2 text-left cursor-pointer"
+        >
+          <div>
+            <div class="text-xs font-semibold text-white flex items-center gap-1.5">
+              <span>12 October 2027 &bull; 12:30 PM</span>
+              <span class="px-1.5 py-0.2 rounded bg-white/10 text-[9px] text-zinc-300 font-medium">Default</span>
+            </div>
+            <div class="text-[11px] text-zinc-400 mt-0.5">Rolling Anniversary Target</div>
+          </div>
+          <span id="checkOptRolling" class="w-4 h-4 rounded-full bg-white text-black flex items-center justify-center shrink-0">
+            <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+        </button>
+
+        <!-- Option 2: Finally Got It (12 October 2036) -->
+        <button
+          id="targetOptFinale"
+          type="button"
+          class="w-full px-3 py-2.5 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-between gap-2 text-left cursor-pointer"
+        >
+          <div>
+            <div class="text-xs font-semibold text-white flex items-center gap-1.5">
+              <span>12 October 2036 &bull; 12:30 PM</span>
+              <span class="px-1.5 py-0.2 rounded bg-amber-400/15 text-[9px] text-amber-300 font-medium">Finally Got It</span>
+            </div>
+            <div class="text-[11px] text-zinc-400 mt-0.5">10-Year Grand Finale Deadline</div>
+          </div>
+          <span id="checkOptFinale" class="hidden w-4 h-4 rounded-full bg-white text-black flex items-center justify-center shrink-0">
+            <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom Section: 11-Milestone Precision Rolling Timeline (2026 -> 2036) -->
+  <footer class="w-full pb-8 sm:pb-12 pt-6 px-3 sm:px-8">
+    <div class="max-w-7xl mx-auto overflow-x-auto no-scrollbar pt-12 pb-2">
+      <!-- Inner container maintains minimum readable width on small screens while filling desktop -->
+      <div class="relative min-w-[820px] px-8 sm:px-12">
+
+        <!-- Track & Moving Live Dot Wrapper (spans exact center-to-center between Node 0 and Node 10) -->
+        <div class="relative h-6 flex items-center">
+          <!-- Base Unfilled Horizontal Line -->
+          <div class="w-full h-[2px] bg-zinc-800 rounded-full relative">
+            <!-- Illuminated Progress Fill Line -->
+            <div
+              id="timelineFill"
+              class="absolute left-0 top-0 h-full bg-gradient-to-r from-zinc-400 via-zinc-200 to-white rounded-full progress-bar-glow transition-[width] duration-300 ease-out"
+              style="width: 0%;"
+            ></div>
+
+            <!-- Moving Glowing Live Dot + Floating Date Tooltip -->
+            <div
+              id="liveDotContainer"
+              class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-30 transition-[left] duration-300 ease-out pointer-events-none"
+              style="left: 0%;"
+            >
+              <!-- Floating Tooltip Above Moving Dot -->
+              <div
+                class="tooltip-arrow absolute bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1 rounded-lg text-[11px] sm:text-xs font-medium text-white shadow-lg"
+                style="background: #181b22; border: 1px solid rgba(255, 255, 255, 0.16);"
+              >
+                <span id="dotTooltipDate">19 Nov 2026</span>
+              </div>
+
+              <!-- Glowing White Dot -->
+              <div class="w-3.5 h-3.5 rounded-full bg-white live-dot border-2 border-white"></div>
+            </div>
+          </div>
+
+          <!-- 11 Milestone Nodes positioned precisely at 0%, 10%, 20%, ..., 100% -->
+          <div id="milestoneNodesLayer" class="absolute inset-0 pointer-events-none"></div>
+        </div>
+
+        <!-- 11 Milestone Labels positioned directly under each corresponding node -->
+        <div id="milestoneLabelsLayer" class="relative h-16 mt-3"></div>
+
+      </div>
+    </div>
+  </footer>
+
+  <!-- Events Frosted-Glass Modal Overlay -->
+  <div
+    id="eventsModalBackdrop"
+    class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 transition-opacity duration-200"
+    aria-modal="true"
+    role="dialog"
+    aria-labelledby="eventsModalTitle"
+  >
+    <div
+      id="eventsModalPanel"
+      class="ios-glass-modal w-full max-w-lg rounded-3xl overflow-hidden flex flex-col max-h-[85vh] shadow-2xl"
+    >
+      <!-- Modal Header -->
+      <div class="px-5 sm:px-6 py-4 border-b border-white/10 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <h2 id="eventsModalTitle" class="text-base sm:text-lg font-semibold text-white tracking-tight">
+            Events
+          </h2>
+          <span
+            id="eventsCountBadge"
+            class="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-[11px] font-medium text-zinc-300"
+          >
+            0
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Plus (+) Icon Button to Add Event -->
+          <button
+            id="openAddEventFormBtn"
+            type="button"
+            class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white flex items-center justify-center transition-all cursor-pointer active:scale-95"
+            title="Add New Event"
+            aria-label="Add New Event"
+          >
+            <svg id="plusBtnIcon" class="w-4 h-4 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+
+          <!-- Close Modal Button -->
+          <button
+            id="closeEventsModalBtn"
+            type="button"
+            class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            title="Close Events"
+            aria-label="Close Events"
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Inline Add Event Form (Toggled via '+' button) -->
+      <form
+        id="addEventForm"
+        class="hidden px-5 sm:px-6 py-4 bg-white/[0.03] border-b border-white/10 space-y-3"
+      >
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-zinc-300">New Event</span>
+          <span id="formErrorMsg" class="hidden text-[11px] text-rose-400 font-medium">Title & short summary required</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div class="sm:col-span-2">
+            <label for="eventTitleInput" class="block text-[11px] text-zinc-400 mb-1">Event Title</label>
+            <input
+              id="eventTitleInput"
+              type="text"
+              placeholder="e.g., First Year Review"
+              class="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/12 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/35 transition"
+            />
+          </div>
+          <div>
+            <label for="eventDateInput" class="block text-[11px] text-zinc-400 mb-1">Date</label>
+            <input
+              id="eventDateInput"
+              type="date"
+              class="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/12 text-xs sm:text-sm text-white focus:outline-none focus:border-white/35 transition"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label for="eventShortInput" class="block text-[11px] text-zinc-400 mb-1">Short Preview (Shortcut)</label>
+          <input
+            id="eventShortInput"
+            type="text"
+            placeholder="Brief highlight shown in card preview..."
+            class="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/12 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/35 transition"
+          />
+        </div>
+
+        <div>
+          <label for="eventFullInput" class="block text-[11px] text-zinc-400 mb-1">Full Details (Shown when clicking More)</label>
+          <textarea
+            id="eventFullInput"
+            rows="3"
+            placeholder="Write the complete story, goals, or notes for this event..."
+            class="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/12 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/35 transition resize-none"
+          ></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button
+            id="cancelAddEventBtn"
+            type="button"
+            class="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-xs font-medium text-zinc-300 transition cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-1.5 rounded-full bg-white text-black hover:bg-zinc-200 text-xs font-semibold transition cursor-pointer shadow-sm"
+          >
+            Save Event
+          </button>
+        </div>
+      </form>
+
+      <!-- Scrollable Events List Container -->
+      <div
+        id="eventsListContainer"
+        class="p-5 sm:p-6 overflow-y-auto subtle-scrollbar space-y-3 flex-1"
+      >
+        <!-- Event cards are dynamically rendered here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Story Frosted-Glass Modal Overlay -->
+  <div
+    id="storyModalBackdrop"
+    class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 transition-opacity duration-200"
+    aria-modal="true"
+    role="dialog"
+    aria-labelledby="storyModalTitle"
+  >
+    <div
+      id="storyModalPanel"
+      class="ios-glass-modal w-full max-w-lg rounded-3xl overflow-hidden flex flex-col max-h-[85vh] shadow-2xl"
+    >
+      <!-- Story Modal Header -->
+      <div class="px-5 sm:px-6 py-4 border-b border-white/10 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <svg class="w-4 h-4 text-amber-300/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+          </svg>
+          <h2 id="storyModalTitle" class="text-base sm:text-lg font-semibold text-white tracking-tight">
+            Story
+          </h2>
+          <span
+            id="storyCountBadge"
+            class="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/25 text-[11px] font-medium text-amber-200"
+          >
+            0 Chapters
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Plus (+) Icon Button to Write New Story Chapter -->
+          <button
+            id="openAddStoryFormBtn"
+            type="button"
+            class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white flex items-center justify-center transition-all cursor-pointer active:scale-95"
+            title="Write New Story Chapter"
+            aria-label="Write New Story Chapter"
+          >
+            <svg id="storyPlusBtnIcon" class="w-4 h-4 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+
+          <!-- Close Story Modal Button -->
+          <button
+            id="closeStoryModalBtn"
+            type="button"
+            class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            title="Close Story"
+            aria-label="Close Story"
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Inline Write New Story Chapter Form -->
+      <form
+        id="addStoryForm"
+        class="hidden px-5 sm:px-6 py-4 bg-white/[0.03] border-b border-white/10 space-y-3"
+      >
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-zinc-300">New Story Chapter</span>
+          <span id="storyFormErrorMsg" class="hidden text-[11px] text-rose-400 font-medium">Title & story text required</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div class="sm:col-span-2">
+            <label for="storyTitleInput" class="block text-[11px] text-zinc-400 mb-1">Chapter Title</label>
+            <input
+              id="storyTitleInput"
+              type="text"
+              placeholder="e.g., Chapter 2: Unbreakable Promise"
+              class="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/12 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/35 transition"
+            />
+          </div>
+          <div>
+            <label for="storyTagInput" class="block text-[11px] text-zinc-400 mb-1">Date / Chapter Tag</label>
+            <input
+              id="storyTagInput"
+              type="text"
+              placeholder="e.g., 12 Oct 2027"
+              class="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/12 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/35 transition"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label for="storySummaryInput" class="block text-[11px] text-zinc-400 mb-1">Short Summary (Preview)</label>
+          <input
+            id="storySummaryInput"
+            type="text"
+            placeholder="A brief one-line glimpse of this chapter..."
+            class="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/12 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/35 transition"
+          />
+        </div>
+
+        <div>
+          <label for="storyBodyInput" class="block text-[11px] text-zinc-400 mb-1">Full Story Narrative (Shown on More)</label>
+          <textarea
+            id="storyBodyInput"
+            rows="3"
+            placeholder="Write the full memory, feelings, or story behind this milestone..."
+            class="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/12 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/35 transition resize-none"
+          ></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button
+            id="cancelAddStoryBtn"
+            type="button"
+            class="px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-xs font-medium text-zinc-300 transition cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-1.5 rounded-full bg-white text-black hover:bg-zinc-200 text-xs font-semibold transition cursor-pointer shadow-sm"
+          >
+            Save Chapter
+          </button>
+        </div>
+      </form>
+
+      <!-- Scrollable Story Chapters Container -->
+      <div
+        id="storyListContainer"
+        class="p-5 sm:p-6 overflow-y-auto subtle-scrollbar space-y-3 flex-1"
+      >
+        <!-- Story chapter cards are dynamically rendered here -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. MILESTONES, ROLLING TARGET & TIMELINE ENGINE
+       ========================================================================= */
+    const MILESTONES = [
+      { year: 2026, title: 'Start', dateLabel: '(12 Oct 2026)' },
+      { year: 2027, title: 'First Anniversary', dateLabel: '(12 Oct 2027)' },
+      { year: 2028, title: 'Second Anniversary', dateLabel: '(12 Oct 2028)' },
+      { year: 2029, title: 'Third Anniversary', dateLabel: '(12 Oct 2029)' },
+      { year: 2030, title: 'Fourth Anniversary', dateLabel: '(12 Oct 2030)' },
+      { year: 2031, title: 'Fifth Anniversary', dateLabel: '(12 Oct 2031)' },
+      { year: 2032, title: 'Sixth Anniversary', dateLabel: '(12 Oct 2032)' },
+      { year: 2033, title: 'Seventh Anniversary', dateLabel: '(12 Oct 2033)' },
+      { year: 2034, title: 'Eighth Anniversary', dateLabel: '(12 Oct 2034)' },
+      { year: 2035, title: 'Ninth Anniversary', dateLabel: '(12 Oct 2035)' },
+      { year: 2036, title: 'Finally Got It', dateLabel: '(12 Oct 2036)' }
+    ].map((m, idx) => ({
+      ...m,
+      index: idx,
+      timestamp: new Date(m.year, 9, 12, 12, 30, 0, 0).getTime()
+    }));
+
+    const START_TS = MILESTONES[0].timestamp;
+    const END_TS = MILESTONES[MILESTONES.length - 1].timestamp;
+    const TOTAL_SEGMENTS = MILESTONES.length - 1;
+
+    const liveClockText = document.getElementById('liveClockText');
+    const cdDays = document.getElementById('cdDays');
+    const cdHours = document.getElementById('cdHours');
+    const cdMinutes = document.getElementById('cdMinutes');
+    const cdSeconds = document.getElementById('cdSeconds');
+    const countdownWrapper = document.getElementById('countdownWrapper');
+    const finaleBanner = document.getElementById('finaleBanner');
+    const rollingTargetText = document.getElementById('rollingTargetText');
+    const timelineFill = document.getElementById('timelineFill');
+    const liveDotContainer = document.getElementById('liveDotContainer');
+    const dotTooltipDate = document.getElementById('dotTooltipDate');
+    const milestoneNodesLayer = document.getElementById('milestoneNodesLayer');
+    const milestoneLabelsLayer = document.getElementById('milestoneLabelsLayer');
+
+    /* Target Deadline Switcher Elements & State ('rolling' = default 2027 rolling, 'finale' = 12 Oct 2036) */
+    let targetOverrideMode = 'rolling';
+    const targetSwitcherBtn = document.getElementById('targetSwitcherBtn');
+    const targetSwitcherChevron = document.getElementById('targetSwitcherChevron');
+    const targetSwitcherMenu = document.getElementById('targetSwitcherMenu');
+    const targetOptRolling = document.getElementById('targetOptRolling');
+    const targetOptFinale = document.getElementById('targetOptFinale');
+    const checkOptRolling = document.getElementById('checkOptRolling');
+    const checkOptFinale = document.getElementById('checkOptFinale');
+
+    function closeTargetSwitcherMenu() {
+      targetSwitcherMenu.classList.add('hidden');
+      targetSwitcherBtn.setAttribute('aria-expanded', 'false');
+      targetSwitcherChevron.classList.remove('rotate-180');
+    }
+
+    function toggleTargetSwitcherMenu() {
+      const isHidden = targetSwitcherMenu.classList.contains('hidden');
+      if (isHidden) {
+        demoPanel.classList.add('hidden');
+        targetSwitcherMenu.classList.remove('hidden');
+        targetSwitcherBtn.setAttribute('aria-expanded', 'true');
+        targetSwitcherChevron.classList.add('rotate-180');
+      } else {
+        closeTargetSwitcherMenu();
+      }
+    }
+
+    function setTargetMode(mode) {
+      targetOverrideMode = mode === 'finale' ? 'finale' : 'rolling';
+
+      if (targetOverrideMode === 'finale') {
+        targetOptFinale.classList.add('bg-white/10');
+        targetOptRolling.classList.remove('bg-white/10');
+        checkOptFinale.classList.remove('hidden');
+        checkOptRolling.classList.add('hidden');
+      } else {
+        targetOptRolling.classList.add('bg-white/10');
+        targetOptFinale.classList.remove('bg-white/10');
+        checkOptRolling.classList.remove('hidden');
+        checkOptFinale.classList.add('hidden');
+      }
+
+      closeTargetSwitcherMenu();
+      updateDashboard();
+    }
+
+    targetSwitcherBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleTargetSwitcherMenu();
+    });
+
+    targetOptRolling.addEventListener('click', () => setTargetMode('rolling'));
+    targetOptFinale.addEventListener('click', () => setTargetMode('finale'));
+
+    /* Demo / Time Travel State */
+    let isSimulated = false;
+    let simulatedStartRealMs = 0;
+    let simulatedBaseTs = 0;
+
+    const demoToggleBtn = document.getElementById('demoToggleBtn');
+    const demoPanel = document.getElementById('demoPanel');
+    const demoStatusDot = document.getElementById('demoStatusDot');
+    const demoBtnLabel = document.getElementById('demoBtnLabel');
+    const resetLiveBtn = document.getElementById('resetLiveBtn');
+    const timeScrubber = document.getElementById('timeScrubber');
+    const scrubberYearHint = document.getElementById('scrubberYearHint');
+
+    const nodeElements = [];
+    const labelElements = [];
+
+    function initTimelineDOM() {
+      MILESTONES.forEach((m, i) => {
+        const pct = (i / TOTAL_SEGMENTS) * 100;
+
+        const node = document.createElement('div');
+        node.className =
+          'absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-zinc-700 transition-colors duration-300 z-10';
+        node.style.left = `${pct}%`;
+        milestoneNodesLayer.appendChild(node);
+        nodeElements.push(node);
+
+        const label = document.createElement('div');
+        label.className =
+          'absolute top-0 -translate-x-1/2 text-center w-24 transition-colors duration-300 select-none';
+        label.style.left = `${pct}%`;
+
+        const formattedTitle = m.title.includes('Anniversary')
+          ? m.title.replace(' Anniversary', '<br/>Anniversary')
+          : m.title;
+
+        label.innerHTML = `
+          <div class="milestone-title text-[11px] sm:text-xs font-medium leading-tight text-zinc-500 transition-colors duration-300">
+            ${formattedTitle}
+          </div>
+          <div class="milestone-date text-[10px] sm:text-[11px] text-zinc-600 mt-1 transition-colors duration-300">
+            ${m.dateLabel}
+          </div>
+        `;
+        milestoneLabelsLayer.appendChild(label);
+        labelElements.push(label);
+      });
+    }
+
+    const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const MONTHS_LONG = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    function pad2(n) {
+      return String(Math.floor(n)).padStart(2, '0');
+    }
+
+    function formatLiveClock(date) {
+      const day = pad2(date.getDate());
+      const month = MONTHS_SHORT[date.getMonth()];
+      const year = date.getFullYear();
+
+      let hours = date.getHours();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      if (hours === 0) hours = 12;
+
+      const mins = pad2(date.getMinutes());
+      const secs = pad2(date.getSeconds());
+
+      return `${day} ${month} ${year} | ${pad2(hours)}:${mins}:${secs} ${ampm}`;
+    }
+
+    function formatShortDate(date) {
+      const day = date.getDate();
+      const month = MONTHS_SHORT[date.getMonth()];
+      const year = date.getFullYear();
+      return `${day} ${month} ${year}`;
+    }
+
+    function getCurrentEffectiveTime() {
+      if (!isSimulated) {
+        return Date.now();
+      }
+      const elapsedSinceJump = Date.now() - simulatedStartRealMs;
+      return simulatedBaseTs + elapsedSinceJump;
+    }
+
+    function updateDashboard() {
+      const nowMs = getCurrentEffectiveTime();
+      const nowDate = new Date(nowMs);
+
+      liveClockText.textContent = formatLiveClock(nowDate);
+      dotTooltipDate.textContent = formatShortDate(nowDate);
+
+      /* Determine active target based on user switcher ('finale' = 12 Oct 2036, 'rolling' = next Oct 12 milestone) */
+      let activeTarget = null;
+      if (targetOverrideMode === 'finale') {
+        const finaleMilestone = MILESTONES[MILESTONES.length - 1];
+        if (nowMs < finaleMilestone.timestamp) {
+          activeTarget = finaleMilestone;
+        }
+      } else {
+        for (let i = 0; i < MILESTONES.length; i++) {
+          if (nowMs < MILESTONES[i].timestamp) {
+            activeTarget = MILESTONES[i];
+            break;
+          }
+        }
+      }
+
+      if (activeTarget) {
+        countdownWrapper.classList.remove('hidden');
+        finaleBanner.classList.add('hidden');
+
+        const diffMs = Math.max(0, activeTarget.timestamp - nowMs);
+        const totalSeconds = Math.floor(diffMs / 1000);
+
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        cdDays.textContent = days < 100 ? pad2(days) : String(days);
+        cdHours.textContent = pad2(hours);
+        cdMinutes.textContent = pad2(minutes);
+        cdSeconds.textContent = pad2(seconds);
+
+        const finaleTag = targetOverrideMode === 'finale' ? ' (Finally Got It)' : '';
+        rollingTargetText.textContent = `12 ${MONTHS_LONG[9]} ${activeTarget.year} • 12:30 PM${finaleTag}`;
+      } else {
+        countdownWrapper.classList.add('hidden');
+        finaleBanner.classList.remove('hidden');
+        rollingTargetText.textContent = `12 October 2036 • 12:30 PM (Completed)`;
+      }
+
+      let progressPct = 0;
+
+      if (nowMs <= START_TS) {
+        progressPct = 0;
+      } else if (nowMs >= END_TS) {
+        progressPct = 100;
+      } else {
+        for (let i = 0; i < TOTAL_SEGMENTS; i++) {
+          const segStart = MILESTONES[i].timestamp;
+          const segEnd = MILESTONES[i + 1].timestamp;
+          if (nowMs >= segStart && nowMs < segEnd) {
+            const segmentFraction = (nowMs - segStart) / (segEnd - segStart);
+            progressPct = ((i + segmentFraction) / TOTAL_SEGMENTS) * 100;
+            break;
+          }
+        }
+      }
+
+      timelineFill.style.width = `${progressPct}%`;
+      liveDotContainer.style.left = `${progressPct}%`;
+
+      MILESTONES.forEach((m, idx) => {
+        const isPassed = nowMs >= m.timestamp;
+        const isNextTarget = activeTarget && activeTarget.index === idx;
+
+        const nodeEl = nodeElements[idx];
+        const titleEl = labelElements[idx].querySelector('.milestone-title');
+        const dateEl = labelElements[idx].querySelector('.milestone-date');
+
+        if (isPassed) {
+          nodeEl.className =
+            'absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-zinc-200 transition-colors duration-300 z-10';
+          titleEl.className =
+            'milestone-title text-[11px] sm:text-xs font-medium leading-tight text-zinc-200 transition-colors duration-300';
+          dateEl.className =
+            'milestone-date text-[10px] sm:text-[11px] text-zinc-400 mt-1 transition-colors duration-300';
+        } else if (isNextTarget) {
+          nodeEl.className =
+            'absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-zinc-500 ring-2 ring-white/20 transition-colors duration-300 z-10';
+          titleEl.className =
+            'milestone-title text-[11px] sm:text-xs font-medium leading-tight text-zinc-300 transition-colors duration-300';
+          dateEl.className =
+            'milestone-date text-[10px] sm:text-[11px] text-zinc-400 mt-1 transition-colors duration-300';
+        } else {
+          nodeEl.className =
+            'absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-zinc-700 transition-colors duration-300 z-10';
+          titleEl.className =
+            'milestone-title text-[11px] sm:text-xs font-medium leading-tight text-zinc-500 transition-colors duration-300';
+          dateEl.className =
+            'milestone-date text-[10px] sm:text-[11px] text-zinc-600 mt-1 transition-colors duration-300';
+        }
+      });
+
+      if (!isSimulated) {
+        const clamped = Math.min(Math.max(nowMs, START_TS), END_TS);
+        const ratio = (clamped - START_TS) / (END_TS - START_TS);
+        timeScrubber.value = Math.round(ratio * 10000);
+      }
+    }
+
+    function activateSimulatedTime(targetTimestamp) {
+      isSimulated = true;
+      simulatedBaseTs = targetTimestamp;
+      simulatedStartRealMs = Date.now();
+
+      demoStatusDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-400';
+      demoBtnLabel.textContent = 'Preview Mode';
+      scrubberYearHint.textContent = formatShortDate(new Date(targetTimestamp));
+
+      const clamped = Math.min(Math.max(targetTimestamp, START_TS), END_TS);
+      const ratio = (clamped - START_TS) / (END_TS - START_TS);
+      timeScrubber.value = Math.round(ratio * 10000);
+
+      updateDashboard();
+    }
+
+    function resetToLiveTime() {
+      isSimulated = false;
+      demoStatusDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
+      demoBtnLabel.textContent = 'Live Mode';
+      scrubberYearHint.textContent = 'Live Now';
+      updateDashboard();
+    }
+
+    demoToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeTargetSwitcherMenu();
+      demoPanel.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!demoPanel.contains(e.target) && !demoToggleBtn.contains(e.target)) {
+        demoPanel.classList.add('hidden');
+      }
+      if (!targetSwitcherMenu.contains(e.target) && !targetSwitcherBtn.contains(e.target)) {
+        closeTargetSwitcherMenu();
+      }
+    });
+
+    timeScrubber.addEventListener('input', (e) => {
+      const ratio = Number(e.target.value) / 10000;
+      const targetTs = START_TS + ratio * (END_TS - START_TS);
+      activateSimulatedTime(targetTs);
+    });
+
+    resetLiveBtn.addEventListener('click', resetToLiveTime);
+
+    document.querySelectorAll('.jump-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const isoStr = btn.getAttribute('data-jump');
+        const ts = new Date(isoStr).getTime();
+        if (!isNaN(ts)) {
+          activateSimulatedTime(ts);
+        }
+      });
+    });
+
+    /* =========================================================================
+       2. EVENTS FEATURE (ADD, VIEW SHORTCUT PREVIEW, EXPAND "MORE", PERSIST)
+       ========================================================================= */
+    const EVENTS_STORAGE_KEY = 'rolling_timeline_events_v1';
+
+    const DEFAULT_EVENTS = [
+      {
+        id: 'evt-1',
+        title: 'Journey Kickoff',
+        date: '2026-10-12',
+        shortDesc: 'Official start of the 10-year rolling countdown at 12:30 PM.',
+        fullDesc:
+          'Marked the beginning of our 10-year roadmap on 12 October 2026 at 12:30 PM. Every year on October 12th, the target automatically advances to celebrate the next anniversary milestone until 2036.',
+        expanded: false,
+        custom: false
+      },
+      {
+        id: 'evt-2',
+        title: 'First Anniversary Check-In',
+        date: '2027-10-12',
+        shortDesc: 'Completing Year 1 and unlocking the Second Anniversary target.',
+        fullDesc:
+          'A full 365-day cycle completed. Reflect on progress made during the inaugural year, archive key highlights, and set fresh priorities for Year 2.',
+        expanded: false,
+        custom: false
+      },
+      {
+        id: 'evt-3',
+        title: 'Mid-Decade Milestone',
+        date: '2031-10-12',
+        shortDesc: 'Halfway mark (5 years completed, 5 years remaining to 2036).',
+        fullDesc:
+          'At the Fifth Anniversary on 12 October 2031, the timeline dot crosses the exact midpoint of the decade journey toward the 2036 grand finale.',
+        expanded: false,
+        custom: false
+      }
+    ];
+
+    let eventsList = [];
+
+    const eventToggleBtn = document.getElementById('eventToggleBtn');
+    const eventHeaderBadge = document.getElementById('eventHeaderBadge');
+    const eventsModalBackdrop = document.getElementById('eventsModalBackdrop');
+    const eventsCountBadge = document.getElementById('eventsCountBadge');
+    const closeEventsModalBtn = document.getElementById('closeEventsModalBtn');
+    const openAddEventFormBtn = document.getElementById('openAddEventFormBtn');
+    const plusBtnIcon = document.getElementById('plusBtnIcon');
+    const addEventForm = document.getElementById('addEventForm');
+    const cancelAddEventBtn = document.getElementById('cancelAddEventBtn');
+    const eventTitleInput = document.getElementById('eventTitleInput');
+    const eventDateInput = document.getElementById('eventDateInput');
+    const eventShortInput = document.getElementById('eventShortInput');
+    const eventFullInput = document.getElementById('eventFullInput');
+    const formErrorMsg = document.getElementById('formErrorMsg');
+    const eventsListContainer = document.getElementById('eventsListContainer');
+
+    function escapeHTML(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatEventDateLabel(isoDateStr) {
+      if (!isoDateStr) return 'No date set';
+      const parts = isoDateStr.split('-');
+      if (parts.length !== 3) return isoDateStr;
+      const year = Number(parts[0]);
+      const monthIdx = Number(parts[1]) - 1;
+      const day = Number(parts[2]);
+      if (monthIdx < 0 || monthIdx > 11 || isNaN(day) || isNaN(year)) return isoDateStr;
+      return `${day} ${MONTHS_SHORT[monthIdx]} ${year}`;
+    }
+
+    function loadEventsFromStorage() {
+      try {
+        const raw = localStorage.getItem(EVENTS_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            eventsList = parsed;
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not read events from localStorage:', err);
+      }
+      eventsList = DEFAULT_EVENTS.map((ev) => ({ ...ev }));
+      saveEventsToStorage();
+    }
+
+    function saveEventsToStorage() {
+      try {
+        localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(eventsList));
+      } catch (err) {
+        console.warn('Could not save events to localStorage:', err);
+      }
+    }
+
+    function updateEventCounters() {
+      const count = String(eventsList.length);
+      eventHeaderBadge.textContent = count;
+      eventsCountBadge.textContent = count;
+    }
+
+    function renderEventsList() {
+      updateEventCounters();
+
+      if (eventsList.length === 0) {
+        eventsListContainer.innerHTML = `
+          <div class="text-center py-10 px-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
+            <p class="text-sm font-medium text-zinc-300">No events added yet</p>
+            <p class="text-xs text-zinc-500 mt-1">Click the <span class="text-white font-semibold">+</span> icon above to add your first event.</p>
+          </div>
+        `;
+        return;
+      }
+
+      eventsListContainer.innerHTML = eventsList
+        .map((ev) => {
+          const safeTitle = escapeHTML(ev.title);
+          const safeDate = escapeHTML(formatEventDateLabel(ev.date));
+          const safeShort = escapeHTML(ev.shortDesc);
+          const safeFull = escapeHTML(ev.fullDesc || ev.shortDesc);
+          const hasExtraDetails = Boolean(ev.fullDesc && ev.fullDesc.trim() !== ev.shortDesc.trim());
+          const isExpanded = Boolean(ev.expanded);
+
+          return `
+            <article class="rounded-2xl bg-white/[0.04] hover:bg-white/[0.06] border border-white/10 p-4 transition-all duration-200 space-y-2">
+              <div class="flex items-start justify-between gap-3">
+                <div class="space-y-1 min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="text-sm font-semibold text-white truncate">${safeTitle}</h3>
+                    <span class="px-2 py-0.5 rounded-full bg-white/10 text-[10px] font-medium text-zinc-300 shrink-0">
+                      ${safeDate}
+                    </span>
+                  </div>
+                </div>
+
+                ${
+                  ev.custom
+                    ? `<button
+                        type="button"
+                        data-action="delete"
+                        data-id="${escapeHTML(ev.id)}"
+                        class="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                        title="Delete Event"
+                        aria-label="Delete Event"
+                      >
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                        </svg>
+                      </button>`
+                    : ''
+                }
+              </div>
+
+              <!-- Short Preview (Shortcut) -->
+              <p class="text-xs text-zinc-300 leading-relaxed">
+                ${safeShort}
+              </p>
+
+              <!-- Full Details (Shown when More is clicked) -->
+              ${
+                isExpanded
+                  ? `<div class="pt-2 border-t border-white/10 text-xs text-zinc-200 leading-relaxed whitespace-pre-line">
+                      ${safeFull}
+                    </div>`
+                  : ''
+              }
+
+              <!-- More / Less Toggle Button -->
+              ${
+                hasExtraDetails
+                  ? `<div class="pt-1">
+                      <button
+                        type="button"
+                        data-action="toggle-more"
+                        data-id="${escapeHTML(ev.id)}"
+                        class="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-300 hover:text-sky-200 transition-colors cursor-pointer"
+                      >
+                        <span>${isExpanded ? 'Less' : 'More'}</span>
+                        <svg class="w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                      </button>
+                    </div>`
+                  : ''
+              }
+            </article>
+          `;
+        })
+        .join('');
+    }
+
+    function openEventsModal() {
+      demoPanel.classList.add('hidden');
+      closeTargetSwitcherMenu();
+      closeStoryModal();
+      eventsModalBackdrop.classList.remove('hidden');
+      renderEventsList();
+    }
+
+    function closeEventsModal() {
+      eventsModalBackdrop.classList.add('hidden');
+      hideAddEventForm();
+    }
+
+    function showAddEventForm() {
+      addEventForm.classList.remove('hidden');
+      plusBtnIcon.classList.add('rotate-45');
+      formErrorMsg.classList.add('hidden');
+      if (!eventDateInput.value) {
+        const now = new Date(getCurrentEffectiveTime());
+        const yyyy = now.getFullYear();
+        const mm = pad2(now.getMonth() + 1);
+        const dd = pad2(now.getDate());
+        eventDateInput.value = `${yyyy}-${mm}-${dd}`;
+      }
+      eventTitleInput.focus();
+    }
+
+    function hideAddEventForm() {
+      addEventForm.classList.add('hidden');
+      plusBtnIcon.classList.remove('rotate-45');
+      formErrorMsg.classList.add('hidden');
+      addEventForm.reset();
+    }
+
+    eventToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openEventsModal();
+    });
+
+    closeEventsModalBtn.addEventListener('click', closeEventsModal);
+
+    eventsModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === eventsModalBackdrop) {
+        closeEventsModal();
+      }
+    });
+
+    openAddEventFormBtn.addEventListener('click', () => {
+      if (addEventForm.classList.contains('hidden')) {
+        showAddEventForm();
+      } else {
+        hideAddEventForm();
+      }
+    });
+
+    cancelAddEventBtn.addEventListener('click', hideAddEventForm);
+
+    addEventForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = eventTitleInput.value.trim();
+      const date = eventDateInput.value;
+      const shortDesc = eventShortInput.value.trim();
+      const fullDesc = eventFullInput.value.trim();
+
+      if (!title || !shortDesc) {
+        formErrorMsg.classList.remove('hidden');
+        return;
+      }
+
+      eventsList.unshift({
+        id: 'evt-' + Date.now(),
+        title,
+        date,
+        shortDesc,
+        fullDesc: fullDesc || shortDesc,
+        expanded: false,
+        custom: true
+      });
+
+      saveEventsToStorage();
+      hideAddEventForm();
+      renderEventsList();
+    });
+
+    eventsListContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+
+      const action = btn.getAttribute('data-action');
+      const id = btn.getAttribute('data-id');
+      if (!id) return;
+
+      if (action === 'toggle-more') {
+        eventsList = eventsList.map((ev) =>
+          ev.id === id ? { ...ev, expanded: !ev.expanded } : ev
+        );
+        renderEventsList();
+      } else if (action === 'delete') {
+        eventsList = eventsList.filter((ev) => ev.id !== id);
+        saveEventsToStorage();
+        renderEventsList();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (!eventsModalBackdrop.classList.contains('hidden')) {
+          closeEventsModal();
+        }
+        if (!storyModalBackdrop.classList.contains('hidden')) {
+          closeStoryModal();
+        }
+        closeTargetSwitcherMenu();
+      }
+    });
+
+    /* =========================================================================
+       3. STORY FEATURE (CHAPTERS, SHORT SUMMARY PREVIEW, "MORE" & LOCALSTORAGE)
+       ========================================================================= */
+    const STORY_STORAGE_KEY = 'rolling_timeline_story_v1';
+
+    const DEFAULT_STORIES = [
+      {
+        id: 'sty-1',
+        title: 'Chapter 1: Where the Clock Began',
+        tag: '12 Oct 2026',
+        summary: 'The exact afternoon the 10-year countdown was set into motion.',
+        body:
+          'On 12 October 2026 at 12:30 PM, a single promise was anchored in time. Instead of watching days slip by unnoticed, this timeline turns every passing second into visible momentum toward 2036.',
+        expanded: false,
+        custom: false
+      },
+      {
+        id: 'sty-2',
+        title: 'Chapter 2: Ten Years of Patience',
+        tag: '2026 – 2036',
+        summary: 'Why annual milestones matter as much as the final destination.',
+        body:
+          'Ten years can feel distant when viewed all at once. Breaking the journey into ten October 12th anniversaries turns a decade-long dream into achievable, yearly chapters leading to "Finally Got It."',
+        expanded: false,
+        custom: false
+      }
+    ];
+
+    let storiesList = [];
+
+    const storyToggleBtn = document.getElementById('storyToggleBtn');
+    const storyHeaderBadge = document.getElementById('storyHeaderBadge');
+    const storyModalBackdrop = document.getElementById('storyModalBackdrop');
+    const storyCountBadge = document.getElementById('storyCountBadge');
+    const closeStoryModalBtn = document.getElementById('closeStoryModalBtn');
+    const openAddStoryFormBtn = document.getElementById('openAddStoryFormBtn');
+    const storyPlusBtnIcon = document.getElementById('storyPlusBtnIcon');
+    const addStoryForm = document.getElementById('addStoryForm');
+    const cancelAddStoryBtn = document.getElementById('cancelAddStoryBtn');
+    const storyTitleInput = document.getElementById('storyTitleInput');
+    const storyTagInput = document.getElementById('storyTagInput');
+    const storySummaryInput = document.getElementById('storySummaryInput');
+    const storyBodyInput = document.getElementById('storyBodyInput');
+    const storyFormErrorMsg = document.getElementById('storyFormErrorMsg');
+    const storyListContainer = document.getElementById('storyListContainer');
+
+    function loadStoriesFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORY_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            storiesList = parsed;
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not read story chapters from localStorage:', err);
+      }
+      storiesList = DEFAULT_STORIES.map((st) => ({ ...st }));
+      saveStoriesToStorage();
+    }
+
+    function saveStoriesToStorage() {
+      try {
+        localStorage.setItem(STORY_STORAGE_KEY, JSON.stringify(storiesList));
+      } catch (err) {
+        console.warn('Could not save story chapters to localStorage:', err);
+      }
+    }
+
+    function updateStoryCounters() {
+      const count = storiesList.length;
+      storyHeaderBadge.textContent = String(count);
+      storyCountBadge.textContent = `${count} ${count === 1 ? 'Chapter' : 'Chapters'}`;
+    }
+
+    function renderStoriesList() {
+      updateStoryCounters();
+
+      if (storiesList.length === 0) {
+        storyListContainer.innerHTML = `
+          <div class="text-center py-10 px-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
+            <p class="text-sm font-medium text-zinc-300">No story chapters written yet</p>
+            <p class="text-xs text-zinc-500 mt-1">Click the <span class="text-white font-semibold">+</span> icon above to write your first chapter.</p>
+          </div>
+        `;
+        return;
+      }
+
+      storyListContainer.innerHTML = storiesList
+        .map((st) => {
+          const safeTitle = escapeHTML(st.title);
+          const safeTag = escapeHTML(st.tag || 'Chapter');
+          const safeSummary = escapeHTML(st.summary);
+          const safeBody = escapeHTML(st.body || st.summary);
+          const hasExtraText = Boolean(st.body && st.body.trim() !== st.summary.trim());
+          const isExpanded = Boolean(st.expanded);
+
+          return `
+            <article class="rounded-2xl bg-white/[0.04] hover:bg-white/[0.06] border border-white/10 p-4 transition-all duration-200 space-y-2">
+              <div class="flex items-start justify-between gap-3">
+                <div class="space-y-1 min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="text-sm font-semibold text-white truncate">${safeTitle}</h3>
+                    <span class="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/20 text-[10px] font-medium text-amber-200 shrink-0">
+                      ${safeTag}
+                    </span>
+                  </div>
+                </div>
+
+                ${
+                  st.custom
+                    ? `<button
+                        type="button"
+                        data-story-action="delete"
+                        data-id="${escapeHTML(st.id)}"
+                        class="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                        title="Delete Chapter"
+                        aria-label="Delete Chapter"
+                      >
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                        </svg>
+                      </button>`
+                    : ''
+                }
+              </div>
+
+              <!-- Short Summary Preview -->
+              <p class="text-xs text-zinc-300 leading-relaxed">
+                ${safeSummary}
+              </p>
+
+              <!-- Full Narrative (Shown when More is clicked) -->
+              ${
+                isExpanded
+                  ? `<div class="pt-2 border-t border-white/10 text-xs text-zinc-200 leading-relaxed whitespace-pre-line">
+                      ${safeBody}
+                    </div>`
+                  : ''
+              }
+
+              <!-- More / Less Toggle Button -->
+              ${
+                hasExtraText
+                  ? `<div class="pt-1">
+                      <button
+                        type="button"
+                        data-story-action="toggle-more"
+                        data-id="${escapeHTML(st.id)}"
+                        class="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300 hover:text-amber-200 transition-colors cursor-pointer"
+                      >
+                        <span>${isExpanded ? 'Less' : 'More'}</span>
+                        <svg class="w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                      </button>
+                    </div>`
+                  : ''
+              }
+            </article>
+          `;
+        })
+        .join('');
+    }
+
+    function openStoryModal() {
+      demoPanel.classList.add('hidden');
+      closeTargetSwitcherMenu();
+      closeEventsModal();
+      storyModalBackdrop.classList.remove('hidden');
+      renderStoriesList();
+    }
+
+    function closeStoryModal() {
+      storyModalBackdrop.classList.add('hidden');
+      hideAddStoryForm();
+    }
+
+    function showAddStoryForm() {
+      addStoryForm.classList.remove('hidden');
+      storyPlusBtnIcon.classList.add('rotate-45');
+      storyFormErrorMsg.classList.add('hidden');
+      if (!storyTagInput.value) {
+        storyTagInput.value = formatShortDate(new Date(getCurrentEffectiveTime()));
+      }
+      storyTitleInput.focus();
+    }
+
+    function hideAddStoryForm() {
+      addStoryForm.classList.add('hidden');
+      storyPlusBtnIcon.classList.remove('rotate-45');
+      storyFormErrorMsg.classList.add('hidden');
+      addStoryForm.reset();
+    }
+
+    storyToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openStoryModal();
+    });
+
+    closeStoryModalBtn.addEventListener('click', closeStoryModal);
+
+    storyModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === storyModalBackdrop) {
+        closeStoryModal();
+      }
+    });
+
+    openAddStoryFormBtn.addEventListener('click', () => {
+      if (addStoryForm.classList.contains('hidden')) {
+        showAddStoryForm();
+      } else {
+        hideAddStoryForm();
+      }
+    });
+
+    cancelAddStoryBtn.addEventListener('click', hideAddStoryForm);
+
+    addStoryForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = storyTitleInput.value.trim();
+      const tag = storyTagInput.value.trim();
+      const summary = storySummaryInput.value.trim();
+      const body = storyBodyInput.value.trim();
+
+      if (!title || !summary) {
+        storyFormErrorMsg.classList.remove('hidden');
+        return;
+      }
+
+      storiesList.unshift({
+        id: 'sty-' + Date.now(),
+        title,
+        tag: tag || formatShortDate(new Date(getCurrentEffectiveTime())),
+        summary,
+        body: body || summary,
+        expanded: false,
+        custom: true
+      });
+
+      saveStoriesToStorage();
+      hideAddStoryForm();
+      renderStoriesList();
+    });
+
+    storyListContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-story-action]');
+      if (!btn) return;
+
+      const action = btn.getAttribute('data-story-action');
+      const id = btn.getAttribute('data-id');
+      if (!id) return;
+
+      if (action === 'toggle-more') {
+        storiesList = storiesList.map((st) =>
+          st.id === id ? { ...st, expanded: !st.expanded } : st
+        );
+        renderStoriesList();
+      } else if (action === 'delete') {
+        storiesList = storiesList.filter((st) => st.id !== id);
+        saveStoriesToStorage();
+        renderStoriesList();
+      }
+    });
+
+    /* =========================================================================
+       4. INITIALIZE APP
+       ========================================================================= */
+    loadEventsFromStorage();
+    updateEventCounters();
+    loadStoriesFromStorage();
+    updateStoryCounters();
+    initTimelineDOM();
+    updateDashboard();
+    setInterval(updateDashboard, 250);
+  </script>
+</body>
+</html>
